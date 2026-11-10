@@ -1,0 +1,5 @@
+services:
+  user:
+    base-url: http://user-service:8080
+  authentication:
+    base-url: http://authentication-service:8080

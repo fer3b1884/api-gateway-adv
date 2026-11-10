@@ -1,0 +1,89 @@
+services:
+  api-gateway:
+    build: .
+    image: api-gateway-adv-app:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      AUTHENTICATION_SERVICE_BASE_URL: http://authentication-service:8080
+    depends_on:
+      user-service:
+        condition: service_started
+      authentication-service:
+        condition: service_started
+
+  user-service:
+    image: user-service-adv-app:latest
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DOCKER_DB_URL: ${USER_DB_URL}
+      DOCKER_DB_USERNAME: ${USER_DB_USERNAME}
+      DOCKER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      DOCKER_REDIS_HOST: ${USER_REDIS_HOST}
+      DOCKER_REDIS_PORT: ${USER_REDIS_PORT}
+      DOCKER_JWT_SECRET: ${DOCKER_JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      user-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  authentication-service:
+    image: authentication-service-adv-app:latest
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DOCKER_DB_URL: ${AUTH_DB_URL}
+      DOCKER_DB_USERNAME: ${AUTH_DB_USERNAME}
+      DOCKER_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      DOCKER_JWT_SECRET: ${DOCKER_JWT_SECRET}
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+
+  user-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${USER_DB_NAME}
+      POSTGRES_USER: ${USER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+    volumes:
+      - user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USERNAME}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  user_postgres_data:
+  auth_postgres_data:
