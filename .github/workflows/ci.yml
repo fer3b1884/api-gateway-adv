@@ -1,0 +1,65 @@
+name: Api Gateway CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-java-maven
+      - name: Build application
+        run: ./mvnw -B -DskipTests package
+
+  test:
+    name: Testing
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-java-maven
+      - name: Run tests
+        run: ./mvnw -B test
+
+  code-analyze:
+    name: Code Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-java-maven
+      - name: SonarQube analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        run: |
+          ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+            -Dsonar.organization="$SONAR_ORGANIZATION" \
+            -Dsonar.host.url="$SONAR_HOST_URL" \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+#            -Dsonar.qualitygate.wait=true
+
+  artefact-creation:
+    name: Artifact Creation
+    needs: code-analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Build Docker image
+        run: docker build -t api-gateway-adv-app:${{ github.sha }} .

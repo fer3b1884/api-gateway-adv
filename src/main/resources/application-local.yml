@@ -1,0 +1,5 @@
+services:
+  user:
+    base-url: http://localhost:8081
+  authentication:
+    base-url: http://localhost:8082

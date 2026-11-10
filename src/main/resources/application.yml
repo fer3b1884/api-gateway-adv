@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway-adv
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: user-service
+              uri: ${services.user.base-url}
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/payment-cards/**
+            - id: authentication-service
+              uri: ${services.authentication.base-url}
+              predicates:
+                - Path=/api/v1/auth/login,/api/v1/auth/refresh
+
+services:
+  user:
+    base-url: http://localhost:8081
+  authentication:
+    base-url: http://localhost:8082
+
+app:
+  internal:
+    secret: ${INTERNAL_SERVICE_SECRET}
